@@ -2,47 +2,46 @@
 layout: runbook
 title: '#4471 split by cause'
 owner: Daniel Andrino
-status: proposed
+status: closed
 reviewed: 2026-10-30
-signature: Daniel Andrino
+signature: v1.eyJzdWIiOiI4NjQiLCJhdWQiOiJjaGFsbGVuZ2U6d2hhdC1pdC1zaG93cyIsImlhdCI6MTc5MzM2ODM0NiwiZXhwIjoxNzkzNDU0NzQ2fQ.uONIy4Cn526H9BNxKs1Puipx6RhyMcjVcOMd_pDwZV0
 ---
 
 <script>
   import SplitTable from '#lib/kb/SplitTable.svelte';
-  import CauseTable from '#lib/kb/CauseTable.svelte';
   import Callout from '#lib/kb/Callout.svelte';
   import RenderStamp from '#lib/kb/RenderStamp.svelte';
 
   const repo = 'https://github.com/danielandrino/s01e03-what-it-shows/issues';
 </script>
 
-[#4471](/kb/incidents/4471) is marked known: one bug, one fix queued. Its reports say otherwise. The desk merged them on subject line ([decision 0001](/kb/decisions/0001-dedupe-by-subject)), and different problems wrote the same subjects.
+[#4471](/kb/incidents/4471) was marked known: one bug, one fix queued. Its reports held more than one problem. The desk merged them on subject line ([decision 0001](/kb/decisions/0001-dedupe-by-subject)), and different causes wrote the same subjects.
 
-<Callout kind="warn">
-The queued parser fix closes the biggest problem only. The others keep coming after it ships.
+<Callout>
+Both causes are closed. The parser is fixed (<code>fix(dates): parse dd/mm for eu locales</code>). The booking-v3 hint is won't fix: the form is retired. #4471 closed on 5 October.
 </Callout>
 
-## What #4471 holds
+## What #4471 held
 
-<SplitTable ticket={4471} issues={{ parser: `${repo}/1`, hint: `${repo}/2`, 'one-day move': `${repo}/3` }} />
+One ticket per cause, counted with `causes.ts` as exported:
+
+<SplitTable ticket={4471} splits={{
+  parser: { url: `${repo}/1`, outcome: 'fixed' },
+  hint: { url: `${repo}/2`, outcome: "won't fix: form retired" },
+}} />
 
 ## How to tell them apart
 
 Read the report's tenant, not its intake tag. Intake guesses from the reporter's browser; the cause depends on where the tenant is and which booking form it runs.
 
-1. **One-day move.** The date moves by exactly one day, or two viewers see two days. A day/month swap cannot do that: 12 May swapped is 5 December, not 11 May. Looks like a time zone shift on all-day dates. The desk already lists these in `desk-notes.json`; until now they were counted under the parser.
-2. **Hint.** The report came through the form of a tenant on booking-v3. That form prints `MM/DD/YYYY` under the date field, people type what it says, and the form reads it day first.
-3. **Parser.** Everything else. The shared parser reads month first and every tenant on file writes the day first, so any date with a day of 12 or less comes out swapped.
+- **Hint.** The report came through the form of a tenant on booking-v3. That form printed `MM/DD/YYYY` under its date field, people typed what it said, and the form read it day first. The parser fix did not touch it.
+- **Parser.** Every other report from a day-first tenant. The shared parser read month first, so any date with a day of 12 or less came out swapped.
 
-## What the desk's own table shows
-
-The same reports through `causes.ts`. It already marks the hint reports as not belonging to #4471, and footnotes the one-day moves under the parser:
-
-<CauseTable ticket={4471} />
+Some parser reports describe a date that moved by one day, not a swap. The desk lists them in `desk-notes.json`; they are filed under the parser by tenant, and the table footnotes them.
 
 ## Lessons
 
 - A merge on subject counts symptoms, not causes. Before marking a big ticket known, group it by tenant and channel.
-- A desk note that a report reads differently is a finding. Give it a ticket.
+- The intake tag disagrees with the cause often enough that it cannot be used to count.
 
 <RenderStamp {signature} />

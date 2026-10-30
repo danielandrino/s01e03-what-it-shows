@@ -1,61 +1,51 @@
 <script lang="ts">
   import reports from '#lib/data/reports-4471.json';
   import notes from '#lib/data/desk-notes.json';
-  import { causeOf, uniqueById, type Report } from '#lib/kb/causes';
+  import { groupByCause, readAs, uniqueById, type Cause } from '#lib/kb/causes';
   import { tenantOf } from '#lib/kb/locales';
+  import type { Report } from '#lib/kb/causes';
 
-  // One row per problem found in a merged ticket. causes.ts files a one-day move under its tenant's
-  // cause; here it is its own problem, because a month/day swap cannot move a date by one day.
-  type Problem = 'parser' | 'hint' | 'one-day move' | 'unplaced';
-  let { ticket, issues = {} }: { ticket: number; issues?: Partial<Record<Problem, string>> } = $props();
-
-  const LABEL: Record<Problem, string> = {
-    parser: 'day-first dates read month first',
-    hint: 'booking-v3 form hint says MM/DD/YYYY',
-    'one-day move': 'date moves by one day, no swap',
-    unplaced: 'no tenant on file',
-  };
+  // A merged ticket split into one ticket per cause, counted the desk's way (causes.ts as exported).
+  type Split = { url: string; outcome: string };
+  let { ticket, splits = {} }: { ticket: number; splits?: Partial<Record<Cause | 'unplaced', Split>> } = $props();
 
   const all = reports as Report[];
   const merged = $derived(uniqueById(all).filter((r) => r.mergedInto === ticket));
-  const problemOf = (r: Report): Problem =>
-    notes.oneDayMove.includes(r.id) ? 'one-day move' : (causeOf(r, tenantOf(r)) ?? 'unplaced');
-
-  const rows = $derived.by(() => {
-    const by = new Map<Problem, Report[]>();
-    for (const r of merged) by.set(problemOf(r), [...(by.get(problemOf(r)) ?? []), r]);
-    return [...by.entries()]
-      .map(([problem, rs]) => {
-        const days = rs.map((r) => r.receivedAt.slice(0, 10)).sort();
-        return { problem, count: rs.length, tenants: new Set(rs.map((r) => r.tenant)).size, first: days[0], last: days[days.length - 1] };
-      })
-      .sort((a, b) => b.count - a.count);
-  });
+  const groups = $derived(groupByCause(merged, tenantOf));
   const issueNo = (url: string) => `#${url.split('/').pop()}`;
 </script>
 
 <p class="sum">
   <strong>{merged.length}</strong> reports merged into #{ticket} ·
-  <strong>{rows.length}</strong> {rows.length === 1 ? 'problem' : 'problems'}
-  <span class="muted">· the export holds {all.length} rows; {all.length - uniqueById(all).length} are repeats of the same id</span>
+  <strong>{groups.length}</strong> {groups.length === 1 ? 'problem' : 'problems'}
+  <span class="muted">· the export holds {all.length} rows; {all.length - merged.length} repeat an id already counted</span>
 </p>
 
 <table>
   <thead>
-    <tr><th>problem</th><th>reports</th><th>tenants</th><th>seen</th><th>ticket</th></tr>
+    <tr><th>cause</th><th>reports</th><th>tenants</th><th>seen</th><th>ticket</th><th>outcome</th></tr>
   </thead>
   <tbody>
-    {#each rows as r (r.problem)}
+    {#each groups as g (g.cause)}
+      {@const s = splits[g.cause]}
       <tr>
-        <td><code>{r.problem}</code> {LABEL[r.problem]}</td>
-        <td>{r.count}</td>
-        <td>{r.tenants}</td>
-        <td>{r.first} → {r.last}</td>
-        <td>{#if issues[r.problem]}<a href={issues[r.problem]}>{issueNo(issues[r.problem]!)}</a>{:else}<span class="warn">none yet</span>{/if}</td>
+        <td><code>{g.cause}</code></td>
+        <td>{g.reports.length}</td>
+        <td>{g.tenants}</td>
+        <td>{g.firstSeen} → {g.lastSeen}</td>
+        <td>{#if s}<a href={s.url}>{issueNo(s.url)}</a>{:else}<span class="warn">none yet</span>{/if}</td>
+        <td>{s?.outcome ?? ''}</td>
       </tr>
     {/each}
   </tbody>
 </table>
+
+{#each groups as g (g.cause)}
+  {@const moved = readAs(g, notes.oneDayMove)}
+  {#if moved}
+    <p class="muted">{moved} of the <code>{g.cause}</code> reports read as a one-day move; counted under <code>{g.cause}</code> by tenant.</p>
+  {/if}
+{/each}
 
 <style>
   .sum { font-size: 1.1rem; }
