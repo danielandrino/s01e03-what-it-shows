@@ -1,0 +1,48 @@
+---
+layout: runbook
+title: '#4471 split by cause'
+owner: Daniel Andrino
+status: proposed
+reviewed: 2026-10-30
+signature: Daniel Andrino
+---
+
+<script>
+  import SplitTable from '#lib/kb/SplitTable.svelte';
+  import CauseTable from '#lib/kb/CauseTable.svelte';
+  import Callout from '#lib/kb/Callout.svelte';
+  import RenderStamp from '#lib/kb/RenderStamp.svelte';
+
+  const repo = 'https://github.com/danielandrino/s01e03-what-it-shows/issues';
+</script>
+
+[#4471](/kb/incidents/4471) is marked known: one bug, one fix queued. Its reports say otherwise. The desk merged them on subject line ([decision 0001](/kb/decisions/0001-dedupe-by-subject)), and different problems wrote the same subjects.
+
+<Callout kind="warn">
+The queued parser fix closes the biggest problem only. The others keep coming after it ships.
+</Callout>
+
+## What #4471 holds
+
+<SplitTable ticket={4471} issues={{ parser: `${repo}/1`, hint: `${repo}/2`, 'one-day move': `${repo}/3` }} />
+
+## How to tell them apart
+
+Read the report's tenant, not its intake tag. Intake guesses from the reporter's browser; the cause depends on where the tenant is and which booking form it runs.
+
+1. **One-day move.** The date moves by exactly one day, or two viewers see two days. A day/month swap cannot do that: 12 May swapped is 5 December, not 11 May. Looks like a time zone shift on all-day dates. The desk already lists these in `desk-notes.json`; until now they were counted under the parser.
+2. **Hint.** The report came through the form of a tenant on booking-v3. That form prints `MM/DD/YYYY` under the date field, people type what it says, and the form reads it day first.
+3. **Parser.** Everything else. The shared parser reads month first and every tenant on file writes the day first, so any date with a day of 12 or less comes out swapped.
+
+## What the desk's own table shows
+
+The same reports through `causes.ts`. It already marks the hint reports as not belonging to #4471, and footnotes the one-day moves under the parser:
+
+<CauseTable ticket={4471} />
+
+## Lessons
+
+- A merge on subject counts symptoms, not causes. Before marking a big ticket known, group it by tenant and channel.
+- A desk note that a report reads differently is a finding. Give it a ticket.
+
+<RenderStamp {signature} />
